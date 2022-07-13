@@ -1,0 +1,113 @@
+\ Inputs
+^RespNPL = 1
+^RespNPR = 2
+^RespNPC = 3
+
+\ Outputs
+^BlueLight = 2
+^YellowLight = 3
+^RewardL = 4
+^RewardR = 5
+^House = 7
+^AversiveShock = 8
+
+^vRespL = 0
+^vDetect = 3
+^vDetectTim = 4
+^vEntHOLD = 5
+^vEntryL = 6
+^vEntryR = 7
+
+^zBlueOn = 1
+^zBlueOff = 2
+^zYellowOn = 3
+^zYellowOff = 4
+^zAversiveOn = 5
+^zAversiveOff = 6
+
+
+\ A() = Control Variables with Assigned Aliases as Defined
+Var_Alias Frequency for Aversive Stimulus (Hz)  = A(0)  \ Default = 1000 Hz
+Var_Alias Amplitude (dB)                        = A(1)  \ Default = 100 dB
+Var_Alias Rise/Fall Time (ms)                   = A(2)  \ Default = 10 ms
+Var_Alias Duration (ms)                         = A(3)  \ Default = 1000 ms
+Var_Alias Frequency for Control Stimulus (Hz)   = A(4)  \ Default = 1000 Hz
+
+^Freq  = 0
+^Amp   = 1
+^RF    = 2
+^Dur   = 3
+^CFreq = 4
+
+
+\ List Working Variables Here
+\  A() = ANL-926 Control Variables
+\  F = Fixed Ratio Value
+\  N = Max Number of Reinforcers
+\  R = Reinforcer Counter
+\  S = Session Timer
+
+
+DIM A = 4
+
+\ List of ITI (Chosen randomly)
+LIST K = 75", 90", 105", 120", 135", 150", 165", 120", 130", 110"
+\ L, M = Temporal Variables for ITI
+
+LIST O = 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1
+\ P, Q = Temporal Variables for Aversive/Non-Aversive Stimuli
+
+
+S.S.1, \ Main Control Logic for FR
+S1,
+    0.01": SET F = 5, N = 14, A(^Freq) = 10000, A(^Amp) = 100, A(^RF) = 10, A(^Dur) = 20000, A(^CFreq) = 1000 ---> S2
+S2,
+    #START: ON ^House;
+    ~InitANL926;~;                     \ Reset ANL-926
+    ~SetFreq(MG, BOX, A[0]);~;         \ Initialize Frequency
+    ~SetAmp(MG, BOX, A[1]);~;          \ Initialize Amplitude
+    ~SetRF(MG, BOX, A[2]);~;           \ Initialize Rise\Fall Time
+    ~SetDur(MG, BOX, A[3]);~;          \ Initialize Duration
+    Z(^zBlueOn) ---> S3                \ Put Blue Light On
+S3,
+    0': RANDD L = K; SET M = L; SHOW 10,Delay CS,M;
+    RANDD P = O; SET Q = P; SHOW 13,Aversive or not,Q ---> S4
+S4,
+    M#T: IF Q = 1 [@T, @F]
+        @T: ~OnFreq(MG, BOX, A[0]);~; SHOW 11,CS,S ---> S5
+        @F: ~OnFreq(MG, BOX, A[4]);~; SHOW 11,CS,S ---> S5
+S5,
+    18.0": IF Q = 1 [@T, @F]
+        @T: Z(^zAversiveOn) ---> S6
+        @F: ---> S6
+S6,
+    2": ADD R; SHOW 3,Reinforcers,R; ---> S3
+
+
+S.S.2, \ Control of the Aversive Stimulator
+S1,
+    #Z(^zAversiveOn): ON ^AversiveShock ---> S2
+S2,
+    2": OFF ^AversiveShock ---> S1
+
+
+S.S.3, \ Control of LED
+S1,
+    #Z(^zBlueOn): ON ^BlueLight; OFF ^YellowLight ---> S2
+S2,
+    #Z(^zBlueOff): OFF ^BlueLight; ON ^YellowLight ---> S3
+S3,
+    1": OFF ^YellowLight ---> S1
+
+
+S.S.4, \ Session Timer
+S1,
+    #START: SHOW 1,Session Minutes,S/60 ---> S2
+S2,
+    0.01": SET S = S + 0.01;
+        SHOW 1,Session Seconds,S;
+        IF R >= N [@True, @False] \ Check Max Reinforcers
+            @True: Z(^zBlueOff) ---> S3
+            @False: ---> SX
+S3,
+    2": ---> STOPABORT

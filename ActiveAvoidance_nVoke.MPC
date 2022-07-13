@@ -1,0 +1,358 @@
+\ Filename, ActiveAvoidance_nVoke.mpc
+
+\ Inputs
+^RespNPL = 1
+^RespNPR = 2
+^RespNPC = 3
+
+\ Outputs
+^Inscopix = 2
+^RewardL = 4
+^RewardR = 5
+^House = 7
+^AversiveShock = 8
+
+^vRespL = 0
+^vDetect = 3
+^vDetectTim = 4
+^vEntHOLD = 5
+^vEntryL = 6
+^vEntryR = 7
+
+
+^zBeginTrial = 9
+^zOnNPL = 10
+^zPassNPR1B = 13
+^zPassNPR1Y = 14
+^zPassNPT1B = 15
+^zPassNPT1Y = 16
+^zPassNPE1 = 17
+^zPassNPE2 = 18
+^zOnInscopix = 19
+^zPassYL = 20
+^zCancel = 21
+^zOffInscopix = 22
+^zRANDD = 24
+
+\Defined Variables
+\ A() = Summary Data Arrey
+\ A(0) = Number of left nosepoke (site 1)
+\ A(1) = Number of right rewards (site 2) after tone 1B
+\ A(2) = Number of right nosepoke (site 2)
+\ A(3) = Number of right rewards (site 2) after tone 1Y
+\ A(4) = Number of tone nosepoke before site 1 food
+\ A(5) = Number of tone 1 Blue
+\ A(6) = Number of tone nosepoke before site 2 food
+\ A(7) = Number of tone 1 Yellow
+\ A(8) = Number of Error 1
+\ A(9) = Number of Error 2
+\ A(10) = Tone delay duration
+\ A(11) = Tone delay recovery time
+\ A(12) = Reward delay duration
+\ A(13) = Reward delay recovery time
+\ A(14) = Duration of center nose poke (trial*10 ms)
+\ A(15) = Duration of left nose poke (trial*10 ms)
+\ A(16) = Duration of right nose poke (trial*10 ms)
+\ A(17) = Number of Tone Blue (TB) wait error
+\ A(18) = Number of Tone Yellow (TY) wait error
+\ A(19) = Number of Food Blue (FB) wait error
+\ A(20) = Number of Food Yellow (FY) wait error
+\ A(21) = Blue light duration
+\ A(22) = Yellow light duration
+\ A(23) = Tone wait error judgement time
+\ A(24) = Reward wait error judgement time
+\ A(25) = Blue or yellow light
+\ A(26) = Max tone 1 + tone wait error
+\ A(27) = Timer
+\ A(28) = Timer of task
+\ A(29) = Task Duration
+\ A(30) = Delay and Light parameter
+\ A(31) = Trial Number
+
+
+\ B = Light and Delay condition, B(0): 1st trial
+\ C = Time of tone 1B presentation
+\ D = Time of tone site entry in tone 1B wait error
+\ E = Time of tone 1B wait error
+\ F = Time of tone site entry in tone 1Y success
+\ G = Time of tone 1Y presentation
+\ H = Time of tone site entry in tone 1Y wait error
+\ I = Time of tone 1Y wait error
+
+\ J = Time of tone site nosepoke responses
+\ K = Time of site 2 nosepoke responses
+
+\ L = Time of site 2 entry in site 2 success after tone Blue
+\ M = Time of right reward (site 2) presentation after tone Blue
+\ N = Time of site 2 entry in site 2 wait error after tone Blue
+\ O = Time of site 2 wait error during Blue Light
+\ P = Time of site 2 entry in site 2 success after tone Yellow
+\ Q = Time of right reward (site 2) presentation after tone Yellow
+\ R = Time of site 2 entry in site 2 wait error after tone Yellow
+\ W = Time of site 2 wait error during Yellow Light
+
+
+Var_Alias Frequency      = S  \ Default = 8000 Hz
+Var_Alias Volume         = T  \ Default = 90 dB
+Var_Alias Rise/Fall Time = U  \ Default = 10 ms
+Var_Alias Duration       = V  \ Default = 500 ms
+
+\ W =
+\ X = Time of tone site nosepoke responses (all)
+\ Y = Time of site 2 nosepoke responses (all)
+
+
+DIM A = 39
+DIM B = 99
+DIM C = 99
+DIM D = 49
+DIM E = 49
+DIM F = 99
+DIM G = 99
+DIM H = 49
+DIM I = 49
+DIM J = 4099
+DIM L = 99
+DIM M = 99
+DIM N = 99
+DIM O = 99
+DIM P = 99
+DIM Q = 99
+DIM R = 99
+DIM W = 99
+DIM X = 99999
+DIM Y = 99999
+
+
+LIST K = 1, 2, 3, 4, 5, 6, 7, 8
+
+
+\*********************************************
+\ Main Control Logic for "FR"
+\*********************************************
+S.S.1,
+S1,
+  0.01": SET A(10) = 0.3, A(11) = 0.1, A(12) = 2.0, A(13) = 0.5;
+         SET A(23) = 0.11, A(24) = 0.51, A(25) = 19, A(26) = 1000, A(29) = 7200, A(31) = 1, B(0) = 2;
+         SET S = 8000, T = 90, U = 10, V = 500 ---> S2
+
+S2,
+  #START: LOCKOFF ^House;
+          ON 1;
+          ~InitANL926;~;              \ Reset ANL-926
+          ~SetFreq(MG, BOX, S);~;     \ Initialize Frequency
+          ~SetAmp(MG, BOX, T);~;      \ Initialize Amplitude
+          ~SetRF(MG, BOX, U);~;       \ Initialize Rise\Fall Time
+          ~SetDur(MG, BOX, V);~;      \ Initialize Duration
+          \ ~OnFreq(MG, BOX, S);~;      \ Issue Starting Stimulus
+           ---> S3
+
+S3,
+0.05": Z(^zPassBLOFF);
+       IF A(30) = 1 [@T1, @F1]
+          @T1: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+          @F1: IF A(30) = 2 [@T2, @F2]
+             @T2: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+             @F2: IF A(30) = 3 [@T3, @F3]
+                @T3: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                @F3: IF A(30) = 4 [@T4, @F4]
+                   @T4: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                   @F4: IF A(30) = 5 [@T5, @F5]
+                      @T5: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                      @F5: IF A(30) = 6 [@T6, @F6]
+                         @T6: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                         @F6: IF A(30) = 7 [@T7, @F7]
+                            @T7: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                            @F7: IF A(30) = 8 [@T8, @F8]
+                               @T8: SET A(12) = 3, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                               @F8: IF A(30) = 9 [@T9, @F9]
+                                  @T9: SET A(12) = 5, A(25) = 19; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                                  @F9: IF A(30) = 10 [@T10, @F10]
+                                     @T10: SET A(12) = 5, A(25) = 20; SHOW 15,Delay,A(12); SHOW 20,Light,A(25) ---> S4
+                                     @F10: ---> S4
+
+S4,
+  #R^RespNPC: ADD A(4); SHOW 1,Responses,A(4);
+              SET J(A(4)) = A(28); IF A(4) >= 5 [@True, @False]
+              @True: IF (J(5)-J(1)) <= 0.06 [@True2, @False2]
+               @True2: IF (A(5)+A(7) >= 0) AND (A(5)+A(7) <= 194) [@T1, @F1]
+                 @T1: ---> S5
+                 @F1: IF (A(5)+A(7) > 4) AND (A(5)+A(7) <= 9) [@T2, @F2]
+                    @T2: SET A(10) = 0.9; Z(A(25)) ---> S5
+                    @F2: IF (A(5)+A(7) > 9) AND (A(5)+A(7) <= 14) [@T3, @F3]
+                       @T3: SET A(10) = 1.2; Z(A(25)) ---> S5
+                       @F3: IF (A(5)+A(7) > 14) AND (A(5)+A(7) <= 19) [@T4, @F4]
+                          @T4: SET A(10) = 1.5; Z(A(25)) ---> S5
+                          @F4: IF (A(5)+A(7) > 19) AND (A(5)+A(7) <= 24) [@T5, @F5]
+                             @T5: SET A(10) = 1.8; Z(A(25)) ---> S5
+                             @F5: IF (A(5)+A(7) > 24) AND (A(5)+A(7) <= 30) [@T6, @F6]
+                                @T6: SET A(10) = 2.1; Z(A(25)) ---> S5
+                                @F6: ---> SX
+                @False2: SET A(4) = 0 ---> SX
+               @False: ---> SX
+
+S5,
+  #R^RespNPC: ADD A(4); SHOW 1,Responses,A(4);
+              SET J(A(4)) = A(28);
+               IF  (J(A(4)) - J(A(4)-1)) <= A(11) [@True, @False]
+                 @True: IF (J(A(4)) - J(1)) >= A(10) [@Passed, @No]
+                            @Passed: ~OnFreq(MG, BOX, S);~;
+                                     IF A(25) = 19 [@A, @B]
+                                          @A: Z(^zPassYLOFF);
+                                              Z(^zPassNPT1B);
+                                              SET A(4) = 0 ---> S6
+                                          @B: Z(^zPassYLOFF);
+                                              Z(^zPassNPT1Y);
+                                              SET A(4) = 0 ---> S6
+                            @No: ---> SX
+                 @False: SET A(4) = 0 ---> SX
+
+0.05": IF (A(28)-J(A(4))) >= A(23) [@Good, @But]
+          @Good: IF A(25) = 19 [@A, @B]
+                      @A: Z(^zPassYLOFF);
+                          SET E(A(17)) =(A(28)-A(23)); SET D(A(17)) = J(1); ADD A(17);
+                          SET E(A(17)) = -987.987; SET D(A(17)) = -987.987;
+                          SHOW 2,TB WaitError,A(17); SET A(4) = 0 ---> S4
+                      @B: Z(^zPassYLOFF);
+                          SET I(A(18)) =(A(28)-A(23)); SET H(A(18)) = J(1); ADD A(18);
+                          SET I(A(18)) = -987.987; SET H(A(18)) = -987.987;
+                          SHOW 12,TY WaitError,A(18); SET A(4) = 0 ---> S4
+
+          @But: ---> SX
+
+S6,
+  #R^RespNPR: ADD A(2); SHOW 3,Responses,A(2);
+              SET J(A(2)) = A(28); IF A(2) >= 10 [@True, @False]
+                  @True: IF (J(10)-J(1)) <= 0.11 [@True2, @False2]
+                        @True2: Z(A(25)) ---> S7
+                        @False2: SET A(2) = 0 ---> SX
+                  @False: ---> SX
+
+
+S7,
+  #R^RespNPR: ADD A(2); SHOW 3,Responses,A(2);
+              SET J(A(2)) = A(28);
+              IF  (J(A(2)) - J(A(2)-1)) <= A(13) [@True, @False]
+                    @True: IF (J(A(2))-J(1) >= A(12))   [@True2, @False2]
+                       @True2: IF (J(A(2))-J(A(2)-1)) <= 0.05 [@Passed, @No]
+                            @Passed: ON ^RewardR;
+                                     IF A(25) = 19 [@A, @B]
+                                          @A: Z(^zPassBLOFF);
+                                              Z(^zPassNPR1B);
+                                              Z(^zRANDD);
+                                              SET A(2) = 0 ---> S3
+                                          @B: Z(^zPassYLOFF);
+                                              Z(^zPassNPR1Y);
+                                              Z(^zRANDD);
+                                              SET A(2) = 0 ---> S3
+                            @No: IF A(25) = 19 [@A, @B]
+                                      @A: Z(^zPassBLOFF);
+                                          Z(^zRANDD);
+                                          SET O(A(19)) =(J(A(2)-1)); SET N(A(19)) = J(1); ADD A(19);
+                                          SET O(A(19)) = -987.987; SET N(A(19)) = -987.987;
+                                          SHOW 4,FB WaitError,A(19); SET A(2) = 0 ---> S3
+                                      @B: Z(^zPassYLOFF);
+                                          Z(^zRANDD);
+                                          SET W(A(20)) =(J(A(2)-1)); SET R(A(20)) = J(1); ADD A(20);
+                                          SET W(A(20)) = -987.987; SET R(A(20)) = -987.987;
+                                          SHOW 14,FY WaitError,A(20); SET A(2) = 0 ---> S3
+                        @False2: ---> SX
+                    @False: SET A(2) = 0 ---> S3
+
+  0.05": IF (A(28)-J(A(2))) >= A(24) [@Good, @But]
+          @Good: IF A(25) = 19 [@A, @B]
+                      @A: Z(^zPassBLOFF);
+                          Z(^zRANDD);
+                          SET O(A(19)) =(A(28)-A(24)); SET N(A(19)) = J(1); ADD A(19);
+                          SET O(A(19)) = -987.987; SET N(A(19)) = -987.987;
+                          SHOW 4,FB WaitError,A(19); SET A(2) = 0 ---> S3
+                      @B: Z(^zPassYLOFF);
+                          Z(^zRANDD);
+                          SET W(A(20)) =(A(28)-A(24)); SET R(A(20)) = J(1); ADD A(20);
+                          SET W(A(20)) = -987.987; SET R(A(20)) = -987.987;
+                          SHOW 14,FY WaitError,A(20); SET A(2) = 0 ---> S3
+          @But: ---> SX
+
+  #R^RespNPL: ~OnFreq(MG, BOX, 500);~;
+              Z(^zPassNPE2) ---> S5
+
+
+S.S.2, \ Time Incerment in 0.01 Second Intervals.
+S1,
+  #START: ---> S2
+
+S2,
+  0.01": SET A(28) = A(28) + 0.01 ---> SX
+
+
+S.S.3, \ Reward Time, Count, and Display
+S1,
+  #Z(^zPassNPR1B): SET M(A(1)) = A(28); SET L(A(1)) = (A(28)-A(12)); ADD A(1);
+                  SET M(A(1)) = -987.987; SET L(A(1)) = -987.987; SHOW 9,Food Blue,A(1) ---> S3
+  #Z(^zPassNPR1Y): SET Q(A(3)) = A(28); SET P(A(3)) = (A(28)-A(12)); ADD A(3);
+                  SET Q(A(3)) = -987.987; SET P(A(3)) = -987.987; SHOW 19,Food Yellow,A(3) ---> S3
+  #Z(^zPassNPT1B): SET C(A(5)) = A(28); ADD A(5);
+                  SET C(A(5)) = -987.987; SHOW 7,Tone Blue,A(5) ---> SX
+  #Z(^zPassNPT1Y): SET G(A(7)) = A(28); SET F(A(7)) = (A(28)-A(10)); ADD A(7);
+                  SET G(A(7)) = -987.987; SET F(A(7)) = -987.987; SHOW 17,Tone Yellow,A(7) ---> SX
+
+S2,
+  0.05": OFF ^RewardL ---> S1
+
+S3,
+  0.05": OFF ^RewardR ---> S1
+
+
+\*********************************************
+\ Turn off the Inscopix miniscope
+\*********************************************
+S.S.4,
+S1,
+    #Z(^zOnInscopix): ON ^Inscopix ---> SX
+
+
+\*********************************************
+\ Turn off the Inscopix miniscope
+\*********************************************
+S.S.5,
+S1,
+    #Z(^zOffInscopix): OFF ^Inscopix ---> SX
+
+
+\*********************************************
+\ Turn off the Inscopix miniscope
+\*********************************************
+S.S.6,
+S1,
+    #START: ---> S2
+
+S2,
+  #R^RespNPC: SET X(A(14)) = A(28); ADD A(14);
+              SET X(A(14)) = -987.987 ---> SX
+  \#R^RespNPL: SET X(A(15)) = A(28); ADD A(15);
+  \            SET X(A(15)) = -987.987 ---> SX
+  #R^RespNPR: SET Y(A(16)) = A(28); ADD A(16);
+              SET Y(A(16)) = -987.987 ---> SX
+
+
+\*********************************************
+\ Session Timer
+\*********************************************
+S.S.7,
+S1,
+  #START: SHOW 5,Session,A(27) ---> S2
+
+S2,
+  1": ADD A(27); SHOW 5,Session,A(27);
+      IF A(27) < A(29) [@T1, @F1]
+         @T1: IF ((A(5)+A(7)+A(17)+A(18)) >= A(26)) OR ((A(1)+A(3)+A(19)+A(20)) >= 43) [@T2, @F2]
+            @T2: ---> S3
+            @F2: ---> SX
+         @F1: ---> S3
+
+S3,
+  0.2": LOCKON ^House;
+        OFF 1 ---> S4
+
+S4,
+  0.2": ---> STOPABORT
